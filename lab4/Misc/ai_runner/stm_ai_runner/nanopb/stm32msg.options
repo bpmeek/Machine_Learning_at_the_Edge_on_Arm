@@ -1,0 +1,18 @@
+//
+//   Copyright (c) 2021 STMicroelectronics.
+//   All rights reserved.
+//   This software is licensed under terms that can be found in the LICENSE file in
+//   the root directory of this software component.
+//   If no LICENSE file comes with this software, it is provided AS-IS.
+//
+
+reqMsg.name max_size:64
+
+logMsg.str max_size:128
+
+aiNetworkInfoMsg.model_name max_size:64
+aiNetworkInfoMsg.model_signature max_size:64
+aiNetworkInfoMsg.model_datetime max_size:64
+aiNetworkInfoMsg.compile_datetime max_size:64
+aiNetworkInfoMsg.runtime_revision max_size:64
+aiNetworkInfoMsg.tool_revision max_size:64

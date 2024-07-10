@@ -1,0 +1,226 @@
+//
+//   Copyright (c) 2021 STMicroelectronics.
+//   All rights reserved.
+//   This software is licensed under terms that can be found in the LICENSE file in
+//   the root directory of this software component.
+//   If no LICENSE file comes with this software, it is provided AS-IS.
+//
+
+// STM32 msg defintions - v2.2
+//
+// https://developers.google.com/protocol-buffers/docs/proto
+//
+
+// history
+//	1.0 - Initial version (float only)
+//  2.0 - Add Qmn support (capability to handle uint8_t... buffers)
+//  2.1 - Add Integer support (extend aiBufferShapeMsg definition
+//        for scale/zeropoint parameters)
+//  2.2 - Add enum to support node with multiple ouputs (EnumLayerType)
+//        Add field to provide address of the buffer (aiBufferShapeMsg)
+//        Add field to indicate the type of the AI runtime
+//        Complete AI RT id with ARM tools id.
+
+syntax = "proto2";
+
+enum EnumVersion {
+    option allow_alias = true;
+	P_VERSION_MAJOR = 2;
+	P_VERSION_MINOR = 2;
+}
+
+// IO Low level interface definition (packet mode)
+enum EnumLowLevelIO { // HOST point of view definition
+    option allow_alias = true;
+	IO_HEADER_EOM_FLAG = 128;  // End-of-message flag (1 << 7)
+	IO_HEADER_SIZE_MSK = 127;  // Max payload size = 127/0x7F 
+	IO_IN_PACKET_SIZE = 32;
+	IO_OUT_PACKET_SIZE = 32;
+	IO_OUT_SYNC = 170; // Byte sync for SW control flow (READ mode) - 0xAA	
+}
+
+// AI Runtime
+enum EnumAiRuntime {
+	AI_RT_STM_AI = 1;  // STM.AI/X-CUBE-AI runtime
+	AI_RT_TFLM = 2;    // TensorFlow for microcontrollers runtime
+	AI_RT_TVM = 3;     // TVM runtime
+}
+
+// ARM Tools
+enum EnumTools {
+	AI_GCC = 1;       // GCC-base toolchain
+	AI_IAR = 2;       // IAR Embedded Workbench for Arm toolchain
+	AI_MDK_5 = 3;     // Keil MDK-ARM Compiler v5.x (AC5) toolchain
+	AI_MDK_6 = 4;     // Keil MDK-ARM Compiler v6.x (AC6) toolchain / based on LLVM and Clang technology
+}
+
+// Capability definition
+enum EnumCapability {
+	CAP_INSPECTOR = 1;
+	CAP_FIXED_POINT = 2;
+	CAP_RELOC = 4;
+	CAP_SELF_TEST = 128 ; // (1 << 7);
+}
+
+// Command ID definition
+enum EnumCmd {
+	CMD_SYNC = 0;
+	CMD_SYS_INFO = 1;
+	
+	CMD_NETWORK_INFO = 10;
+	CMD_NETWORK_RUN = 11;
+	CMD_NETWORK_REPORT = 12;
+		
+	CMD_TEST = 100;	
+	CMD_TEST_UNSUPPORTED = 200;
+}
+
+// State definition
+enum EnumState {
+	S_IDLE = 0;
+	S_WAITING = 1;
+	S_PROCESSING = 2;
+	S_DONE = 3;
+	S_ERROR = 4;
+}
+
+// Error definition
+enum EnumError {
+	E_NONE = 0;
+	E_INVALID_SIZE = 1;
+	E_INVALID_FORMAT = 2;
+	E_INVALID_STATE = 3;
+	E_INVALID_PARAM = 4;
+	E_INVALID_SHAPE = 5;
+	E_INVALID_CMD = 6;
+	E_INVALID_UNINITIALIZED = 7;
+	E_GENERIC = 10;
+}
+
+// Run parameter definition
+enum EnumRunParam {
+	P_RUN_MODE_NORMAL = 0;
+	P_RUN_MODE_INSPECTOR = 1;
+	P_RUN_MODE_INSPECTOR_WITHOUT_DATA = 2;
+}
+
+// Request/cmd message (HOST -> STM32)
+message reqMsg {
+	required uint32  reqid = 1;
+	required EnumCmd cmd = 2 [default = CMD_SYS_INFO];
+	required uint32  param = 3;
+	required string  name = 4;
+	required uint32  opt = 5;	
+}
+
+// Sub RESP message (STM32 -> HOST)
+message aiRunReportMsg {
+	required uint32 id = 1;
+	required uint32 signature = 2;
+	required uint32 num_inferences = 3; 
+	required uint32 n_nodes = 4; 
+	required float  elapsed_ms = 5; 
+}
+
+// Buffer shape message (HOST -> STM32 & STM32 -> HOST) 
+message aiBufferShapeMsg {
+	required uint32 format = 1 [default = 0];
+	required uint32 n_batches = 2 [default = 1];
+	required uint32 height = 3 [default = 1];
+	required uint32 width = 4 [default = 1];
+	required uint32 channels = 5 [default = 1];
+	required float  scale = 6 [default = 0.0];
+	required int32 zeropoint = 7 [default = 0];
+	required int32 addr = 8 [default = 0];
+}
+
+// Sub RESP message (STM32 -> HOST)
+message aiNetworkInfoMsg {
+	required string model_name = 1;
+	required string model_signature = 2;
+	required string model_datetime = 3;
+	required string compile_datetime = 4;
+	required string runtime_revision = 5;
+	required uint32 runtime_version = 6;
+	required string tool_revision = 7;
+	required uint32 tool_version = 8;
+	required uint32 tool_api_version = 9;
+	required uint32 api_version = 10;
+	required uint32 interface_api_version = 11;
+	required uint32 n_macc = 12;
+	required uint32 n_inputs = 13;
+	required uint32 n_outputs = 14;
+	required uint32 n_nodes = 15;
+	repeated aiBufferShapeMsg inputs = 16;
+	repeated aiBufferShapeMsg outputs = 17;
+	required aiBufferShapeMsg activations = 18;
+	required aiBufferShapeMsg weights = 19;
+	required uint32 signature = 20;
+}
+
+// Buffer BYTE message and sub LAYER message (HOST to STM32 & STM32 to HOST)
+message aiBufferByteMsg {
+	required aiBufferShapeMsg shape = 1;
+	required bytes datas = 2;
+}
+
+// Sub RESP message (STM32 to HOST)
+message syncMsg {
+	required uint32 version = 1;
+	required uint32 capability = 4;
+	required uint32 rtid = 5;
+}
+
+// Sub RESP message (STM32 to HOST)
+message sysinfoMsg {
+	required uint32 devid = 1;
+	required uint32 sclock = 2;
+	required uint32 hclock = 3;
+	required uint32 cache = 4;    // STM32 device dependent
+}
+
+// Ack message and Sub RESP message (HOST to STM32 & STM32 to HOST)
+message ackMsg {
+	required uint32 param = 1;
+	required EnumError error = 2;
+}
+
+// Sub RESP message (STM32 to HOST)
+message logMsg {
+	required uint32 level = 1;
+	required string str = 2;
+}
+
+// Used to define the "type" of layer/node
+//  type(uint32) = reserved[31:25] | (LAYER_TYPE_xx << 16) | (AI node type)(uint16)
+//  For "ai node type" definition, see layer_list.h file
+enum EnumLayerType {
+	LAYER_TYPE_OUTPUT = 0;
+	LAYER_TYPE_INTERNAL = 1;
+	LAYER_TYPE_INTERNAL_LAST = 2;
+	LAYER_TYPE_INTERNAL_DATA_NO_LAST = 4;
+}
+
+// Sub RESP message (STM32 to HOST)
+message nodeMsg {
+	required uint32 type = 1;		  // type of layer (CMD dependent)
+	required uint32 id = 2;		      // type of layer (CMD dependent)
+	required float duration = 3;      // unity: us
+	required aiBufferByteMsg buffer = 4; 
+}
+
+// RESP message (STM32 to HOST)
+message respMsg {
+	required uint32 reqid = 1;
+	required EnumState state = 2;
+	oneof payload {
+		syncMsg sync = 10;
+		sysinfoMsg sinfo = 11;
+		ackMsg ack = 12;
+		logMsg log = 13;
+		nodeMsg node = 14;
+
+		aiNetworkInfoMsg ninfo = 20;
+		aiRunReportMsg   report = 21; 
+	}
+}
